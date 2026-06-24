@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ポイント分配ゲーム</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f7f9; color: #2d3748; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { max-width: 850px; width: 95%; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; }
+        h1 { font-size: 24px; color: #1a202c; margin-bottom: 20px; }
+        h3 { font-size: 18px; color: #2d3748; margin: 20px 0 10px 0; text-align: left; border-left: 4px solid #3182ce; padding-left: 10px; }
+        p { font-size: 15px; line-height: 1.6; text-align: left; color: #4a5568; }
+        
+        /* 画面切り替えの基本クラス */
+        .screen { display: none; }
+        .screen.active { display: block !important; }
+
+        .instruction-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 25px; border-radius: 8px; margin-bottom: 30px; text-align: left; }
+        .btn-primary { background: #3182ce; color: white; border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+        .btn-primary:hover { background: #2b6cb0; }
+
+        .header-info { display: flex; justify-content: space-between; font-size: 14px; color: #718096; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 25px; }
+
+        .phase-badge { display: inline-block; padding: 4px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; margin-bottom: 15px; }
+        .phase-allocation { background-color: #feebc8; color: #c05621; border: 1px solid #fbd38d; }
+        .phase-intervention { background-color: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; margin-top: 5px; }
+
+        /* 画像配置用スタイル */
+        .procedure-img-wrapper { text-align: center; margin: 15px 0 25px 0; }
+        .procedure-img { max-width: 90%; height: auto; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
+
+        /* 視覚的長さバー */
+        .visualization-area { margin: 15px auto 25px; max-width: 550px; background: #fff; padding: 20px; border: 1px solid #edf2f7; border-radius: 8px; }
+        .bar-label { text-align: left; font-size: 14px; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .bar-wrapper { background: #edf2f7; width: 100%; height: 24px; border-radius: 4px; margin-bottom: 15px; overflow: hidden; position: relative; }
+        .fill-bar { height: 100%; width: 0%; transition: width 0.3s ease; } 
+        .bar-a-color { background-color: #dd6b20; }
+        .bar-b-color { background-color: #3182ce; }
+
+        /* 罰の強さ選択ボタン */
+        .simulator-layout { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-top: 15px; display: flex; flex-direction: column; gap: 20px; }
+        .amount-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+        .amount-btn { padding: 15px 5px; background: #fff; border: 2px solid #cbd5e0; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+        .amount-btn:hover { border-color: #e53e3e; background: #fff5f5; }
+        
+        .sim-display-panel { background: #fff; border: 1px dashed #cbd5e0; padding: 15px; border-radius: 6px; text-align: left; }
+        .sim-title { font-size: 13px; font-weight: bold; color: #718096; margin-bottom: 8px; text-align: center; border-bottom: 1px solid #edf2f7; padding-bottom: 4px;}
+        .sim-grid { display: flex; justify-content: space-around; text-align: center; }
+        .sim-player-box { flex: 1; }
+        .sim-player-name { font-size: 12px; font-weight: bold; color: #4a5568; }
+        .sim-player-val { font-size: 18px; font-weight: bold; margin-top: 4px; }
+        .val-change { font-size: 12px; font-weight: bold; margin-left: 4px; }
+        .val-minus { color: #e53e3e; }
+
+        /* 累積ポイント表示用 */
+        .cumulative-info-box { background: #fffdf5; border: 1px solid #fef3c7; border-radius: 6px; padding: 10px 15px; margin-bottom: 15px; text-align: left; font-size: 14px; color: #d97706; font-weight: bold; display: flex; justify-content: space-between; }
+
+        /* リアルタイム意思決定・マッチング用アニメーション */
+        .thinking-box { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; }
+        .dot-flashing { position: relative; width: 10px; height: 10px; border-radius: 5px; background-color: #3182ce; color: #3182ce; animation: dot-flashing 1s infinite linear alternate; animation-delay: 0.5s; margin-top: 20px; }
+        .dot-flashing::before, .dot-flashing::after { content: ""; display: inline-block; position: absolute; top: 0; }
+        .dot-flashing::before { left: -15px; width: 10px; height: 10px; border-radius: 5px; background-color: #3182ce; color: #3182ce; animation: dot-flashing 1s infinite linear alternate; animation-delay: 0s; }
+        .dot-flashing::after { left: 15px; width: 10px; height: 10px; border-radius: 5px; background-color: #3182ce; color: #3182ce; animation: dot-flashing 1s infinite linear alternate; animation-delay: 1s; }
+        @keyframes dot-flashing { 0% { background-color: #3182ce; } 50%, 100% { background-color: #edf2f7; } }
+
+        /* マッチングステータス表示 */
+        .status-text { font-size: 16px; font-weight: bold; color: #4a5568; margin-top: 15px; min-height: 24px; }
+
+        /* 区切り画面バッジ */
+        .trial-badge { font-size: 48px; font-weight: bold; color: #2b6cb0; margin: 30px 0; }
+        .data-textarea { width: 100%; height: 180px; font-family: monospace; font-size: 11px; padding: 10px; margin-top: 15px; box-sizing: border-box; resize: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div id="screen-instruction" class="screen active">
+        <h1>ポイント分配ゲームの説明～</h1>
+        <div class="instruction-box">
+            <p>この課題では、あなたと他のオンライン参加者2人の計3人（プレイヤーA、プレイヤーB、プレイヤーC）で構成されるグループで、ポイントの分配と罰に関する意思決定ゲームを行います。あなたの役割は<strong>「プレイヤーC（介入者）」</strong>です。</p>
+            
+            <p>ゲームは【分配フェイズ】と【介入フェイズ】の2段階で構成されています。</p>
+            
+            <h3>【分配フェイズ】</h3>
+            <p>プレイヤーA（分配者）は、最初に渡された100ポイントを、自分とプレイヤーB（受領者）の間でどのように分けるかを決定します。プレイヤーB（受領者）はポイントを受け取るだけで、選択権はありません。</p>
+            
+            <div class="procedure-img-wrapper">
+                <img src="手順1.png" alt="分配フェイズの説明図" class="procedure-img">
+            </div>
+            
+            <h3>【介入フェイズ】</h3>
+            <p>プレイヤーC（介入者：あなた）であるあなたには、毎試行手元に<strong>50ポイント</strong>が支給されます。プレイヤーA（分配者）の分配内容を確認したのち、プレイヤーAに「罰」を与えるために自己のポイントを投資するかどうかを決定してください。</p>
+            <p>
+                あなたが罰に1ポイントを投資するごとに、プレイヤーA（分配者）のポイントは <strong>1.5ポイント減少</strong> します。<br>
+                （例：50ポイントすべてを投資した場合、プレイヤーAは75ポイント失います）
+            </p>
+            
+            <div class="procedure-img-wrapper">
+                <img src="手順2.png" alt="介入フェイズの説明図" class="procedure-img">
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+            <p style="color: #c53030; font-weight: bold; text-align: center;">
+                ※ゲームは全部で【8回（8試行）】繰り返されます。
+            </p>
+        </div>
+        <button class="btn-primary" onclick="startMatchingProcess()">実験を開始する</button>
+    </div>
+
+    <div id="screen-matching" class="screen">
+        <div class="thinking-box" style="padding: 80px 20px;">
+            <h2 style="font-size: 22px; color: #2d3748; margin-bottom: 10px;">サーバーへ接続しています</h2>
+            <div id="matching-status" class="status-text">ネットワークの状態を確認中...</div>
+            <div class="dot-flashing" style="margin-top: 30px;"></div>
+        </div>
+    </div>
+
+    <div id="screen-interval" class="screen">
+        <p style="text-align: center; font-size: 18px; font-weight: bold; color: #4a5568;">Next Trial</p>
+        <div id="interval-trial-text" class="trial-badge">第 1 試行</div>
+        <p style="text-align: center; color: #718096; margin-bottom: 30px;">準備ができたら、下のボタンを押してゲームを開始してください。</p>
+        <button class="btn-primary" onclick="startPlayerAThinking()">この試行を開始する</button>
+    </div>
+
+    <div id="screen-thinking" class="screen">
+        <div class="header-info">
+            <span id="label-thinking-trial-count">試行: 1 / 8</span>
+            <span style="font-weight: bold; color: #3182ce;">あなたの役割: プレイヤーC（介入者）</span>
+        </div>
+        <div class="thinking-box">
+            <h2 style="font-size: 20px; color: #4a5568;">プレイヤーA（分配者）が分配比率を検討しています...<br><span style="font-size: 14px; color: #a0aec0;">（制限時間：30秒）</span></h2>
+            <div class="dot-flashing"></div>
+        </div>
+    </div>
+
+    <div id="screen-a-result" class="screen">
+        <div class="header-info">
+            <span id="label-a-result-trial-count">試行: 1 / 8</span>
+            <span style="font-weight: bold; color: #3182ce;">あなたの役割: プレイヤーC（介入者）</span>
+        </div>
+
+        <div class="phase-badge phase-allocation">【分配フェイズ】プレイヤーA（分配者）の決定結果</div>
+        <h2 id="a-result-text" style="font-size: 18px; margin-bottom: 20px; margin-top: 0;">Aの提案内容</h2>
+        
+        <div class="visualization-area">
+            <div class="bar-label">
+                <span>プレイヤーA（分配者）</span>
+                <span id="text-bar-a-res">-- ポイント</span>
+            </div>
+            <div class="bar-wrapper">
+                <div id="bar-a-res" class="fill-bar bar-a-color"></div>
+            </div>
+
+            <div class="bar-label">
+                <span>プレイヤーB（受領者）</span>
+                <span id="text-bar-b-res">-- ポイント</span>
+            </div>
+            <div class="bar-wrapper">
+                <div id="bar-b-res" class="fill-bar bar-b-color"></div>
+            </div>
+        </div>
+
+        <p style="text-align: center; margin-top: 30px; color: #4a5568;">
+            上記の内容を確認したら、下のボタンを押してあなたの行動決定（介入フェイズ）へ進んでください。
+        </p>
+        <button class="btn-primary" onclick="goToPlayerCDecision()">あなたの決定画面へ進む</button>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="header-info">
+            <span id="label-trial-count">試行: 1 / 8</span>
+            <span style="font-weight: bold; color: #3182ce;">あなたの役割: プレイヤーC（介入者）</span>
+        </div>
+
+        <div class="phase-badge phase-intervention">【介入フェイズ】プレイヤーA（分配者）への罰の決定</div>
+        
+        <div class="cumulative-info-box">
+            <span>📊 プレイヤーA（分配者）の現在までの累積獲得ポイント:</span>
+            <span id="text-cumulative-a">0 pt</span>
+        </div>
+
+        <p style="text-align: center; font-weight: bold; margin-bottom: 15px;">
+            プレイヤーAを罰するために、あなたの手持ち（50pt）から何ポイント投資しますか？
+        </p>
+        
+        <div class="simulator-layout">
+            <div class="sim-display-panel">
+                <div class="sim-title">💡 ボタンにマウスを乗せる（タップする）と、ポイントの変動（投資額の1.5倍の罰）をシミュレートします</div>
+                <div class="sim-grid">
+                    <div class="sim-player-box">
+                        <div class="sim-player-name">プレイヤーA（今試行の獲得）</div>
+                        <div class="sim-player-val"><span id="sim-val-a">--</span><span id="sim-change-a" class="val-change"></span></div>
+                    </div>
+                    <div class="sim-player-box">
+                        <div class="sim-player-name">プレイヤーB（今試行の獲得）</div>
+                        <div class="sim-player-val"><span id="sim-val-b">--</span></div>
+                    </div>
+                    <div class="sim-player-box">
+                        <div class="sim-player-name">プレイヤーC（介入者：あなた）</div>
+                        <div class="sim-player-val"><span id="sim-val-c">--</span><span id="sim-change-c" class="val-change"></span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="amount-container">
+                <button class="amount-btn" onmouseenter="updateSim(0)" onmouseleave="resetSim()" onclick="submitAmount(0)">0 pt<br>(罰しない)</button>
+                <button class="amount-btn" onmouseenter="updateSim(10)" onmouseleave="resetSim()" onclick="submitAmount(10)">10 pt</button>
+                <button class="amount-btn" onmouseenter="updateSim(20)" onmouseleave="resetSim()" onclick="submitAmount(20)">20 pt</button>
+                <button class="amount-btn" onmouseenter="updateSim(30)" onmouseleave="resetSim()" onclick="submitAmount(30)">30 pt</button>
+                <button class="amount-btn" onmouseenter="updateSim(40)" onmouseleave="resetSim()" onclick="submitAmount(40)">40 pt</button>
+                <button class="amount-btn" onmouseenter="updateSim(50)" onmouseleave="resetSim()" onclick="submitAmount(50)">50 pt<br>(最大)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-results" class="screen">
+        <h2>🎉 全試行が終了しました</h2>
+        <p style="text-align: center;">ご協力ありがとうございました。データ送信を完了するまでそのままお待ちください。</p>
+        <p style="text-align: center; font-size: 14px; color: #718096; display:none;" id="fallback-text">
+            自動遷移が行われなかった場合は、以下のデータをすべてコピーしてQualtricsに貼り付けてください。
+        </p>
+        <textarea id="csv-output" class="data-textarea" readonly onclick="this.select();" style="display:none;"></textarea>
+    </div>
+
+</div>
+
+<script>
+    // --- 1. 実験パラメタの設定 ---
+    const TOTAL_TRIALS = 8;
+    let currentTrialIndex = 0;
+    let trialList = [];
+    let resultsData = [];
+    let playerACumulativePoints = 0; // プレイヤーAの累積ポイントを保持する変数
+
+    // --- 2. 試行リストの生成 (Study 3準拠: 5%～40%の不公平分配) ---
+    function generateTrials() {
+        let tempTrials = [];
+        const availableAllocations = [5, 10, 15, 20, 25, 30, 35, 40];
+        
+        for(let i = 0; i < TOTAL_TRIALS; i++) {
+            let b_alloc = availableAllocations[Math.floor(Math.random() * availableAllocations.length)];
+            let a_alloc = 100 - b_alloc;
+            tempTrials.push({ a_alloc: a_alloc, b_alloc: b_alloc });
+        }
+        return tempTrials;
+    }
+
+    // すべての画面からactiveクラスを一度クリアする共通関数
+    function changeScreen(activeScreenId) {
+        const screens = ["screen-instruction", "screen-matching", "screen-interval", "screen-thinking", "screen-a-result", "screen-game", "screen-results"];
+        screens.forEach(id => {
+            document.getElementById(id).classList.remove("active");
+        });
+        document.getElementById(activeScreenId).classList.add("active");
+    }
+
+    // マッチングシミュレーションロジック
+    function startMatchingProcess() {
+        trialList = generateTrials();
+        currentTrialIndex = 0;
+        playerACumulativePoints = 0; // 初期化
+        changeScreen("screen-matching");
+
+        const statusLabel = document.getElementById("matching-status");
+
+        // ステップ1: ネットワーク接続確認 (1.5秒後)
+        setTimeout(() => {
+            statusLabel.innerText = "サーバー接続完了。他のオンラインプレイヤーを検索中...";
+            
+            // ステップ2: 他のプレイヤーとの同期 (1.5秒後、計3.0秒)
+            setTimeout(() => {
+                statusLabel.innerText = "他の参加者2名が見つかりました。実験グループを編成中...";
+                
+                // ステップ3: グループ確定と役割の割り振りの完了演出 (1.5秒後、計4.5秒)
+                setTimeout(() => {
+                    showTrialInterval();
+                }, 1500);
+
+            }, 1500);
+
+        }, 1500);
+    }
+
+    // 試行間の区切り画面（インターバル）を表示
+    function showTrialInterval() {
+        if (currentTrialIndex >= TOTAL_TRIALS) {
+            finishExperiment();
+            return;
+        }
+        document.getElementById("interval-trial-text").innerText = `第 ${currentTrialIndex + 1} 試行`;
+        changeScreen("screen-interval");
+    }
+
+    // 【修正】プレイヤーAのリアルタイム思考演出（10秒～25秒のランダム待機）
+    function startPlayerAThinking() {
+        document.getElementById("label-thinking-trial-count").innerText = `試行: ${currentTrialIndex + 1} / ${TOTAL_TRIALS}`;
+        changeScreen("screen-thinking");
+
+        // 10,000ms（10秒）〜 25,000ms（25秒）の間でランダムに設定
+        let thinkingTime = 10000 + Math.floor(Math.random() * 15001);
+
+        setTimeout(() => {
+            showPlayerAResult();
+        }, thinkingTime);
+    }
+
+    // プレイヤーAの決定結果を単独で示す画面のセット
+    function showPlayerAResult() {
+        let currentTrial = trialList[currentTrialIndex];
+        document.getElementById("label-a-result-trial-count").innerText = `試行: ${currentTrialIndex + 1} / ${TOTAL_TRIALS}`;
+
+        const barARes = document.getElementById("bar-a-res");
+        const barBRes = document.getElementById("bar-b-res");
+
+        document.getElementById("a-result-text").innerHTML = `プレイヤーA（分配者）の決定：<br>100ポイントのうち自らに <strong>${currentTrial.a_alloc} ポイント</strong>、プレイヤーB（受領者）に <strong>${currentTrial.b_alloc} ポイント</strong>`;
+        document.getElementById("text-bar-a-res").innerText = `${currentTrial.a_alloc} pt`;
+        document.getElementById("text-bar-b-res").innerText = `${currentTrial.b_alloc} pt`;
+
+        barARes.style.width = `${currentTrial.a_alloc}%`;
+        barBRes.style.width = `${currentTrial.b_alloc}%`;
+
+        changeScreen("screen-a-result");
+    }
+
+    // 参加者の決定（介入フェイズ）画面へ移行する関数
+    function goToPlayerCDecision() {
+        document.getElementById("label-trial-count").innerText = `試行: ${currentTrialIndex + 1} / ${TOTAL_TRIALS}`;
+        
+        // 【修正】プレイヤーAのこれまでの累積ポイントをUIに反映
+        document.getElementById("text-cumulative-a").innerText = `${playerACumulativePoints} pt`;
+        
+        resetSim();
+        changeScreen("screen-game");
+    }
+
+    // --- 4. 動的シミュレーターのロジック ---
+    function resetSim() {
+        let currentTrial = trialList[currentTrialIndex];
+        document.getElementById("sim-val-a").innerText = currentTrial.a_alloc;
+        document.getElementById("sim-val-b").innerText = currentTrial.b_alloc;
+        document.getElementById("sim-val-c").innerText = 50;
+
+        document.getElementById("sim-change-a").innerText = "";
+        document.getElementById("sim-change-c").innerText = "";
+    }
+
+    function updateSim(amount) {
+        let currentTrial = trialList[currentTrialIndex];
+        
+        let baseA = currentTrial.a_alloc;
+        let baseC = 50;
+
+        let changeA = -(amount * 1.5);
+        let changeC = -amount;
+
+        document.getElementById("sim-val-a").innerText = baseA + changeA;
+        document.getElementById("sim-val-c").innerText = baseC + changeC;
+
+        let elChangeA = document.getElementById("sim-change-a");
+        if(amount > 0) {
+            elChangeA.innerText = ` (${changeA})`; 
+            elChangeA.className = "val-change val-minus";
+        } else {
+            elChangeA.innerText = "";
+        }
+
+        let elChangeC = document.getElementById("sim-change-c");
+        if(amount > 0) {
+            elChangeC.innerText = ` (${changeC})`; 
+            elChangeC.className = "val-change val-minus";
+        } else {
+            elChangeC.innerText = " (±0)";
+            elChangeC.className = "val-change";
+        }
+    }
+
+    // --- 5. データの記録と試行の進捗 ---
+    function submitAmount(amount) {
+        let currentTrial = trialList[currentTrialIndex];
+        let finalAForThisTrial = currentTrial.a_alloc - (amount * 1.5); // 罰引き後のAの試行獲得pt
+
+        resultsData.push({
+            trialNum: currentTrialIndex + 1,
+            a_allocation: currentTrial.a_alloc,
+            b_allocation: currentTrial.b_alloc,
+            investment: amount,
+            punishment_deduction: amount * 1.5,
+            remaining_c: 50 - amount,
+            cumulative_a_before: playerACumulativePoints // 記録用に罰を受ける前の累積も保持
+        });
+        
+        // 【修正】この試行で罰が確定した後のプレイヤーAのポイントを累積に加算
+        playerACumulativePoints += finalAForThisTrial;
+        
+        currentTrialIndex++;
+        showTrialInterval();
+    }
+
+    // --- 6. クアルトリクスへの自動データ送信と画面遷移 ---
+    function finishExperiment() {
+        // 1. 保存用のCSV文字列を生成
+        let csv = "Trial_Number,A_Alloc,B_Alloc,Invested_Points_C,Punishment_Dealt_A,Remaining_C,Cumulative_A_Before\\n";
+        resultsData.forEach(row => {
+            csv += `${row.trialNum},${row.a_allocation},${row.b_allocation},${row.investment},${row.punishment_deduction},${row.remaining_c},${row.cumulative_a_before}\\n`;
+        });
+
+        // 2. 親ウィンドウ（Qualtrics）が存在するか確認
+        if (window.opener && !window.opener.closed) {
+            try {
+                const qualtricsTextField = window.opener.document.getElementById('QR~QID79~TEXT');
+                
+                if (qualtricsTextField) {
+                    qualtricsTextField.value = csv;
+                    alert("実験データが正常に送信されました。自動的にアンケート画面に戻ります。");
+                    
+                    if (window.opener.jQuery) {
+                        window.opener.jQuery('#NextButton').click();
+                    } else {
+                        const nextBtn = window.opener.document.getElementById('NextButton');
+                        if (nextBtn) nextBtn.click();
+                    }
+                    window.close();
+                    return;
+                }
+            } catch (e) {
+                console.error("Qualtricsとの自動連携に失敗しました:", e);
+            }
+        }
+
+        // 万が一のフォールバック表示
+        changeScreen("screen-results");
+        document.getElementById("fallback-text").style.display = "block";
+        const outputArea = document.getElementById("csv-output");
+        outputArea.style.display = "block";
+        outputArea.value = csv;
+        alert("アンケート画面へのデータ自動送信ができませんでした。恐れ入りますが、画面に表示されたデータをコピーしてアンケート画面に貼り付けてください。");
+    }
+</script>
+
+</body>
+</html>
