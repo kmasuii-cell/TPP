@@ -397,44 +397,36 @@
     }
 
     // --- 6. クアルトリクスへの自動データ送信と画面遷移 ---
-    function finishExperiment() {
-        // 1. 保存用のCSV文字列を生成
-        let csv = "Trial_Number,A_Alloc,B_Alloc,Invested_Points_C,Punishment_Dealt_A,Remaining_C,Cumulative_A_Before\\n";
-        resultsData.forEach(row => {
-            csv += `${row.trialNum},${row.a_allocation},${row.b_allocation},${row.investment},${row.punishment_deduction},${row.remaining_c},${row.cumulative_a_before}\\n`;
-        });
+function finishExperiment() {
+    // 1. CSVデータの生成
+    let csv = "Trial_Number,A_Alloc,B_Alloc,Invested_Points_C,Punishment_Dealt_A,Remaining_C,Cumulative_A_Before\n";
+    resultsData.forEach(row => {
+        csv += `${row.trialNum},${row.a_allocation},${row.b_allocation},${row.investment},${row.punishment_deduction},${row.remaining_c},${row.cumulative_a_before}\n`;
+    });
 
-        // 2. 親ウィンドウ（Qualtrics）が存在するか確認
-        if (window.opener && !window.opener.closed) {
-            try {
-                const qualtricsTextField = window.opener.document.getElementById('QR~QID79~TEXT');
-                
-                if (qualtricsTextField) {
-                    qualtricsTextField.value = csv;
-                    alert("実験データが正常に送信されました。自動的にアンケート画面に戻ります。");
-                    
-                    if (window.opener.jQuery) {
-                        window.opener.jQuery('#NextButton').click();
-                    } else {
-                        const nextBtn = window.opener.document.getElementById('NextButton');
-                        if (nextBtn) nextBtn.click();
-                    }
-                    window.close();
-                    return;
-                }
-            } catch (e) {
-                console.error("Qualtricsとの自動連携に失敗しました:", e);
-            }
-        }
-
-        // 万が一のフォールバック表示
+    // 2. 親ウィンドウ（Qualtrics）にデータを「投函」する
+    if (window.opener) {
+        // 全てのドメイン(*)宛にメッセージを送信
+        window.opener.postMessage({
+            type: 'experiment_data',
+            csvData: csv
+        }, "*"); 
+        
+        // 少し待ってから、送信成功のメッセージを出して閉じる
+        setTimeout(() => {
+            alert("実験データが送信されました。アンケート画面に戻ります。");
+            window.close();
+        }, 500);
+    } else {
+        // 親ウィンドウが見つからない場合のフォールバック（手動コピー）
         changeScreen("screen-results");
         document.getElementById("fallback-text").style.display = "block";
         const outputArea = document.getElementById("csv-output");
         outputArea.style.display = "block";
         outputArea.value = csv;
-        alert("アンケート画面へのデータ自動送信ができませんでした。恐れ入りますが、画面に表示されたデータをコピーしてアンケート画面に貼り付けてください。");
+        alert("アンケート画面との接続が切れています。データをコピーして貼り付けてください。");
     }
+}
 </script>
 
 </body>
